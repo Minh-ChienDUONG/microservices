@@ -4,6 +4,10 @@ import com.minhchienduong.moviecatalogservice.models.CatalogItem;
 import com.minhchienduong.moviecatalogservice.models.Movie;
 import com.minhchienduong.moviecatalogservice.models.Rating;
 import com.minhchienduong.moviecatalogservice.models.UserRating;
+import com.minhchienduong.moviecatalogservice.services.MovieInfo;
+import com.minhchienduong.moviecatalogservice.services.UserRatingInfo;
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+import com.netflix.ribbon.proxy.annotation.Hystrix;
 import org.apache.catalina.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,19 +31,22 @@ public class MovieCatalogResource {
     @Autowired
     private WebClient.Builder webClientBuilder;
 
+    @Autowired
+    MovieInfo movieInfo;
+
+    @Autowired
+    UserRatingInfo userRatingInfo;
+
 
     @RequestMapping("/{userId}")
-    public List<CatalogItem> getcatalog(@PathVariable("userId") String userId) {
+    public List<CatalogItem> getCatalog(@PathVariable("userId") String userId) {
         /*return Collections.singletonList(
                 new CatalogItem("Transformer", "Test", 4)
         );*/
 
+        UserRating ratings = userRatingInfo.getUserRating(userId);
 
-        UserRating ratings = restTemplate.getForObject("http://ratings-data-service/ratingsdata/users/" + userId, UserRating.class);
-
-        return ratings.getUserRating().stream().map(rating -> {
-            Movie movie = restTemplate.getForObject("http://movie-info-service/movies/" + rating.getMovieId(), Movie.class);
-
+        return ratings.getRatings().stream().map(rating -> {
             /**WEB CLIENT BUILDER**/
             /*Movie movie = webClientBuilder.build()
                     .get()
@@ -47,12 +54,17 @@ public class MovieCatalogResource {
                     .retrieve()
                     .bodyToMono(Movie.class)
                     .block();*/
-            return new CatalogItem(movie.getName(), movie.getDescription(), rating.getRating());
+
+            return movieInfo.getCatalogItem(rating);
         })
         .collect(Collectors.toList());
 
 
     }
+
+   /* public List<CatalogItem> getFallbackCatalog(@PathVariable("userId") String userId) {
+        return Arrays.asList(new CatalogItem("No movie", "", 0));
+    }*/
 
 
 }
